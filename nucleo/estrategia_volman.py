@@ -1,132 +1,113 @@
 # nucleo/estrategia_volman.py
-# 📉 EL DETECTIVE DE PATRONES (ESTRATEGIA BOB VOLMAN)
-# Este archivo busca formas especiales en el gráfico de precios.
-# Si ve la forma correcta, nos avisa para disparar.
+# 🏎️ ESTRATEGIA DE CARRERAS (VOLMAN VECTORIZADO)
+# Este archivo es el mismo detective de antes, pero ahora mira 10 años de gráficos en 1 segundo.
+# Usamos "Magia de Tablas" (Vectorización) en lugar de mirar vela por vela.
 
-import pandas as pd  # Traemos la herramienta para manejar tablas de datos (Excel gigante).
-import pandas_ta as ta  # Traemos los indicadores técnicos (las reglas de medir).
+import pandas as pd  # La tabla mágica.
+import pandas_ta as ta  # Las herramientas de dibujo (indicadores).
+import numpy as np  # Matemáticas rápidas.
 
-class AnalistaVolman:
+class AnalistaVolmanVectorizado:
     """
-    El ojo experto que busca los secretos de Bob Volman.
-    Busca dos cosas: 'Cajas que se rompen' (Block Break) y 'Velas gemelas' (Double Doji).
+    El cerebro ultra-rápido de Bob Volman.
+    Calcula todo de golpe para que el Laboratorio pueda hacer miles de pruebas.
     """
 
-    def __init__(self, data: pd.DataFrame):
-        # Cuando nace el analista, le damos los datos del pasado.
-        # Data tiene que tener: precio de apertura, alto, bajo, cierre y volumen.
-        self.df = data
-        # Nada más empezar, calculamos las líneas guía.
-        self._calcular_indicadores()
+    def __init__(self):
+        # Configuración básica (Parámetros que podemos cambiar).
+        self.periodo_ema = 20  # La media móvil de 20 velas.
+        self.periodo_atr = 14  # Para medir volatilidad.
+        self.bloque_velas = 7  # Cuántas velas miramos para la "Caja Explosiva".
 
-    def _calcular_indicadores(self):
-        # Calculamos la EMA 20 (La línea sagrada).
-        # Es el promedio de los últimos 20 precios, pero dando más importancia a los nuevos.
-        self.df['EMA_20'] = ta.ema(self.df['close'], length=20)
-        
-        # Calculamos el ATR (El medidor de nerviosismo).
-        # Nos dice cuánto se mueve el precio normalmente arriba y abajo.
-        self.df['ATR'] = ta.atr(self.df['high'], self.df['low'], self.df['close'], length=14)
-
-    def detectar_block_break(self) -> dict:
+    def populate_indicators(self, df: pd.DataFrame) -> pd.DataFrame:
         """
-        BUSCA EL PATRÓN: BLOCK BREAK (La Caja Explosiva).
-        Es cuando el precio se queda quieto en una cajita y de repente salta.
+        Calcula las líneas y números importantes de TODA la historia a la vez.
         """
-        # Si tenemos poquitos datos (menos de 25 velas), no podemos mirar nada.
-        if len(self.df) < 25: 
-            return {"senal": False}
+        # 1. EMA 20 (La línea sagrada).
+        # Usamos pandas_ta para calcular la columna entera.
+        df['EMA_20'] = ta.ema(df['close'], length=self.periodo_ema)
 
-        # Cogemos las últimas 7 velas para mirarlas con lupa.
-        last_candles = self.df.tail(7) 
-        
-        # Miramos el precio de AHORA MISMO (la última vela).
-        current_price = last_candles['close'].iloc[-1]
-        
-        # Miramos dónde está la línea sagrada (EMA 20) ahora mismo.
-        ema_20 = last_candles['EMA_20'].iloc[-1]
+        # 2. ATR (El medidor de nerviosismo).
+        df['ATR'] = ta.atr(df['high'], df['low'], df['close'], length=self.periodo_atr)
 
-        # 1. Definimos la Caja (El Bloque).
-        # Miramos las velas anteriores (todas menos la última que se está moviendo).
-        block = last_candles.iloc[:-1] 
-        
-        # Buscamos el punto más alto del techo de la caja.
-        block_high = block['high'].max()
-        # Buscamos el punto más bajo del suelo de la caja.
-        block_low = block['low'].min()
-        # Calculamos la altura de la caja (Techo - Suelo).
-        block_height = block_high - block_low
-        
-        # Miramos cuánto se suele mover el precio (ATR) hace dos velas.
-        atr_promedio = self.df['ATR'].iloc[-2]
-        
-        # REGLA: La caja tiene que ser pequeña (comprimida).
-        # Si la altura es menor que 1.5 veces lo normal, es una caja apretada.
-        es_comprimido = block_height < (atr_promedio * 1.5)
+        # 3. Canales de Donchian (Para ver máximos y mínimos del bloque).
+        # Esto nos dice cuál fue el precio más alto y más bajo de las últimas 7 velas.
+        # Shift(1) es importante: queremos el máximo de las 7 ANTERIORES, sin contar la actual.
+        df['donchian_high'] = df['high'].rolling(window=self.bloque_velas).max().shift(1)
+        df['donchian_low'] = df['low'].rolling(window=self.bloque_velas).min().shift(1)
 
-        # 2. REGLA: La caja tiene que estar pegada a la línea sagrada (EMA 20).
-        # Calculamos la distancia entre el centro de la caja y la línea.
-        distancia_ema = abs(block['close'].mean() - ema_20)
-        # Tiene que estar muy cerca (menos de la mitad de un movimiento normal).
-        es_cercano_ema = distancia_ema < (atr_promedio * 0.5)
+        # 4. Altura del Bloque (Tamaño de la caja).
+        df['block_height'] = df['donchian_high'] - df['donchian_low']
 
-        # 3. REGLA: El salto (Ruptura).
-        # El precio de ahora tiene que haber roto el techo de la caja.
-        es_ruptura = current_price > block_high
+        # 5. Distancia a la EMA (Qué tan lejos estamos de la línea sagrada).
+        # Usamos el precio medio del bloque (promedio de alto y bajo) comparado con la EMA.
+        df['block_center'] = (df['donchian_high'] + df['donchian_low']) / 2
+        df['dist_ema'] = abs(df['block_center'] - df['EMA_20'])
 
-        # Si se cumplen las tres reglas a la vez...
-        if es_comprimido and es_cercano_ema and es_ruptura:
-            # ... ¡TENEMOS SEÑAL!
-            return {
-                "senal": True, 
-                "tipo": "VOLMAN_BB_BULL", # Nombre clave del movimiento.
-                "entrada": current_price, # Precio al que disparamos.
-                "stop_loss": block_low,   # Si el precio baja al suelo de la caja, huimos.
-                "confianza": 0.9          # Estamos muy seguros (90%).
-            }
-        
-        # Si no se cumple, no hacemos nada.
-        return {"senal": False}
+        # 6. Definición de Doji (Para el patrón de Gemelas).
+        # Un Doji es cuando el cuerpo es muy pequeño comparado con la mecha total.
+        cuerpo = abs(df['open'] - df['close'])
+        mecha_total = df['high'] - df['low']
+        # Si el cuerpo es menor al 15% de la mecha, es un Doji (True/False).
+        # Evitamos dividir por cero con np.where.
+        df['is_doji'] = np.where(mecha_total > 0, cuerpo <= (mecha_total * 0.15), False)
 
-    def detectar_double_doji(self) -> dict:
+        return df
+
+    def populate_signals(self, df: pd.DataFrame) -> pd.DataFrame:
         """
-        BUSCA EL PATRÓN: DOUBLE DOJI (Las Gemelas Indecisas).
-        Es cuando el precio para a descansar sobre la línea y luego sigue subiendo.
+        Busca las señales de COMPRA y VENTA en toda la tabla a la vez.
+        Crea columnas 'enter_long' y 'exit_long' con 1 (Sí) o 0 (No).
         """
-        # Necesitamos al menos 5 velas para ver esto.
-        if len(self.df) < 5: 
-            return {"senal": False}
+        # Aseguramos que tenemos los indicadores calculados.
+        if 'EMA_20' not in df.columns:
+            df = self.populate_indicators(df)
 
-        # Miramos las dos velas anteriores a la de ahora.
-        c1 = self.df.iloc[-2] # La penúltima.
-        c2 = self.df.iloc[-3] # La antepenúltima.
-        current = self.df.iloc[-1] # La de ahora.
+        # --- PATRÓN 1: BLOCK BREAK (La Caja Explosiva) ---
+        
+        # Regla 1: Caja pequeña (Comprimida). Altura < 1.5 veces el ATR promedio.
+        # Shift(1) porque miramos el ATR de ayer.
+        atr_ayer = df['ATR'].shift(1)
+        es_comprimido = df['block_height'] < (atr_ayer * 1.5)
 
-        # REGLA: ¿Son Dojis? (Cuerpo muy pequeñito, casi una línea).
-        # Si la diferencia entre abrir y cerrar es minúscula comparada con la mecha.
-        es_doji_1 = abs(c1['open'] - c1['close']) <= (c1['high'] - c1['low']) * 0.15
-        es_doji_2 = abs(c2['open'] - c2['close']) <= (c2['high'] - c2['low']) * 0.15
+        # Regla 2: Pegado a la EMA. Distancia < 0.5 veces el ATR.
+        es_cercano_ema = df['dist_ema'] < (atr_ayer * 0.5)
 
-        # REGLA: ¿Están tocando la línea sagrada (EMA 20)?
-        # El precio bajo debe ser menor que la línea, y el alto mayor. (La cruzan).
-        toca_ema = (c1['low'] <= c1['EMA_20'] <= c1['high']) or 
-                   (c2['low'] <= c2['EMA_20'] <= c2['high'])
+        # Regla 3: Ruptura (El precio actual rompe el techo de la caja).
+        es_ruptura = df['close'] > df['donchian_high']
 
-        # REGLA: El salto (Ruptura).
-        # El precio de ahora tiene que superar el punto más alto de las gemelas.
-        max_dojis = max(c1['high'], c2['high'])
-        ruptura = current['close'] > max_dojis
+        # Combinamos todo: Si (Comprimido Y Cercano Y Ruptura) -> SEÑAL BB.
+        senal_bb = es_comprimido & es_cercano_ema & es_ruptura
 
-        # Si son gemelas, tocan la línea y el precio salta...
-        if es_doji_1 and es_doji_2 and toca_ema and ruptura:
-            # ... ¡TENEMOS SEÑAL!
-            return {
-                "senal": True,
-                "tipo": "VOLMAN_DD_SCALP", # Nombre clave.
-                "entrada": current['close'], # Precio de disparo.
-                "stop_loss": min(c1['low'], c2['low']), # Si baja de los pies de las gemelas, huimos.
-                "confianza": 0.85 # Estamos bastante seguros (85%).
-            }
+        # --- PATRÓN 2: DOUBLE DOJI (Las Gemelas) ---
+        
+        # Miramos si la vela de ayer (shift 1) y la de antes de ayer (shift 2) eran Dojis.
+        doji_ayer = df['is_doji'].shift(1)
+        doji_anteayer = df['is_doji'].shift(2)
 
-        # Si no, nada.
-        return {"senal": False}
+        # Miramos si las Gemelas tocaban la EMA 20.
+        # (El mínimo era menor que la EMA y el máximo mayor que la EMA).
+        toca_ema_ayer = (df['low'].shift(1) <= df['EMA_20'].shift(1)) & (df['high'].shift(1) >= df['EMA_20'].shift(1))
+        toca_ema_anteayer = (df['low'].shift(2) <= df['EMA_20'].shift(2)) & (df['high'].shift(2) >= df['EMA_20'].shift(2))
+        
+        tocan_ema = toca_ema_ayer | toca_ema_anteayer # Con que una toque vale.
+
+        # Ruptura de Dojis: El precio actual supera el máximo de las dos gemelas.
+        max_dojis = df[['high']].shift(1).rolling(2).max()['high'] # Máximo de las 2 anteriores.
+        ruptura_doji = df['close'] > max_dojis
+
+        # Combinamos: Si (Doji Ayer Y Doji Anteayer Y Tocan EMA Y Ruptura) -> SEÑAL DD.
+        senal_dd = doji_ayer & doji_anteayer & tocan_ema & ruptura_doji
+
+        # --- SEÑAL FINAL ---
+        # Compramos si se cumple CUALQUIERA de los dos patrones.
+        # Ponemos un 1 donde sea True, y un 0 donde sea False.
+        df['enter_long'] = (senal_bb | senal_dd).astype(int)
+
+        # --- SALIDAS (STOP LOSS Y TAKE PROFIT VECTORIZADO) ---
+        # Esto es simple para el vectorizado:
+        # Salimos si el precio cruza la EMA hacia abajo (cierre < EMA).
+        # (En backtesting real usaremos stop loss fijo, pero esto marca tendencia).
+        df['exit_long'] = (df['close'] < df['EMA_20']).astype(int)
+
+        return df
