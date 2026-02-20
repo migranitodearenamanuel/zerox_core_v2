@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  zerox-brain:
+    build: .
+    container_name: zerox_core_v2
+    restart: always # INMORTALIDAD: Si falla, revive automáticamente.
+    volumes:
+      # Conexión Neural: El bot puede editar su propio cerebro ('nucleo')
+      - ./nucleo:/app/nucleo
+      - ./conocimiento:/app/conocimiento
+      - ./logs:/app/logs
+      - ./estado_bot.json:/app/estado_bot.json
+      - ./SISTEMA_AUTONOMO.py:/app/SISTEMA_AUTONOMO.py
+    env_file:
+      - .env # Carga tus claves de API (Groq, Exchange) de forma segura
+    environment:
+      - MODO_EJECUCION=PRODUCCION
+      - TZ=Europe/Madrid # Sincronización temporal para mercados
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0' # Le damos potencia de cálculo
+          memory: 4G # Memoria suficiente para procesar libros grandes
