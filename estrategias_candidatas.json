@@ -1,0 +1,39 @@
+[
+    {
+        "nombre": "PATRON_NISON_ENGULFING_ALCISTA",
+        "tipo": "REVERSION",
+        "reglas": {
+            "descripcion": "Una vela roja pequeña seguida de una vela verde gigante que se la come.",
+            "vela_1": "ROJA",
+            "vela_2": "VERDE",
+            "condicion_cuerpo": "CUERPO_2 > CUERPO_1",
+            "condicion_cierre": "CIERRE_2 > APERTURA_1",
+            "tendencia_previa": "BAJISTA"
+        },
+        "fuente": "Steve Nison - Japanese Candlestick Charting"
+    },
+    {
+        "nombre": "PATRON_BULKOWSKI_DOBLE_SUELO",
+        "tipo": "FIGURA_W",
+        "reglas": {
+            "descripcion": "El precio toca el suelo dos veces y no puede romperlo.",
+            "puntos_minimos": 2,
+            "distancia_tiempo": "10_VELAS_MINIMO",
+            "diferencia_precio": "MENOR_AL_2%",
+            "volumen": "CRECIENTE_EN_SUBIDA"
+        },
+        "fuente": "Thomas Bulkowski - Encyclopedia of Chart Patterns"
+    },
+    {
+        "nombre": "PATRON_NISON_MARTILLO",
+        "tipo": "REBOTE",
+        "reglas": {
+            "descripcion": "Vela con cuerpo pequeño arriba y una sombra larga abajo.",
+            "forma": "MARTILLO",
+            "sombra_inferior": "DOS_VECES_EL_CUERPO",
+            "sombra_superior": "CASI_NULA",
+            "tendencia_previa": "BAJISTA"
+        },
+        "fuente": "Steve Nison"
+    }
+]

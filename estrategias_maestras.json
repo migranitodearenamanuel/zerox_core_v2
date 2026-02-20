@@ -1,0 +1,18 @@
+[
+    {
+        "nombre": "PATRON_NISON_MARTILLO",
+        "tipo": "REBOTE",
+        "reglas": {
+            "descripcion": "Vela con cuerpo peque\u00c3\u00b1o arriba y una sombra larga abajo.",
+            "forma": "MARTILLO",
+            "sombra_inferior": "DOS_VECES_EL_CUERPO",
+            "sombra_superior": "CASI_NULA",
+            "tendencia_previa": "BAJISTA"
+        },
+        "fuente": "Steve Nison",
+        "metricas": {
+            "sharpe": 2.5,
+            "estado": "MAESTRA"
+        }
+    }
+]

@@ -1,0 +1,9 @@
+groq
+google-generativeai
+ccxt
+requests
+python-dotenv
+gitpython
+beautifulsoup4
+gTTS
+lxml
